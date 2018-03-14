@@ -8,22 +8,26 @@ require_once 'config.php';
 	} else {
 //$_POST['ttype'] == 1 - user clicked the Save Reconciliation button - reconciliation not completed 
         if($_POST['ttype'] == 1){
+            if($_SESSION['inprog'] == 1){
+//update existing row in reconciliation
+                $sql = "UPDATE reconciliation SET rec_id = ?, rec_status = ?, group_id = ?, end_balance = ?, statement_date = ?, rec_note = ? where rec_id = ?";
+            } else {
 //add a row to the reconciliation table
- 	        $sql = "INSERT INTO reconciliation (rec_id, rec_status, group_id, end_balance, statement_date, rec_date, rec_note) values (?,?,?,?,?,?,?)";
+ 	          $sql = "INSERT INTO reconciliation (rec_id, rec_status, group_id, end_balance, statement_date, rec_note) values (?,?,?,?,?,?)";
+            }
             $stmt = mysqli_stmt_init($link);
             if (!$stmt){
 //             error_log(strftime("Y-m-d H:M:S").'Bad statement',0); 
             }
  			if($stmt = mysqli_prepare($link, $sql)){
 //                error_log(strftime("Y-m-d H:M:S").'In prepare',0);
-           	mysqli_stmt_bind_param($stmt, "iiiisss", $recid, $recstatus, $group, $bal, $sdate, $rdate, $note);
-                $recid = 5;
+           	mysqli_stmt_bind_param($stmt, "iiiissi", $recid, $recstatus, $group, $bal, $sdate, $note, $recid);
+//                $recid = 5;
+                $recid = $_SESSION['iprecid'];
                 $recstatus = $_POST['ttype'];
                 $group = $_SESSION['Group_Id'];
             	$bal = $_POST['bal'];
-//                $bal = 200.20;
-                $sdate = '2018-03-03';
-                $rdate = "2018-03-03";
+                $sdate = $_POST['dstat'];
             	$note = $_POST['transid'];
             		if(mysqli_stmt_execute($stmt)){
                 		$result = mysqli_stmt_get_result($stmt);

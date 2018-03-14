@@ -82,7 +82,8 @@ if (value > 0){
 }
 
 function saverec(e) {
-var params = ''+ 'ttype=' + window.encodeURIComponent(e) + '&transid=' + window.encodeURIComponent(recnos) + '&bal=' + window.encodeURIComponent(cbt);
+    var stdate = document.getElementById("statdate").value;
+var params = ''+ 'ttype=' + window.encodeURIComponent(e) + '&transid=' + window.encodeURIComponent(recnos) + '&bal=' + window.encodeURIComponent(cbt) + '&dstat=' + window.encodeURIComponent(stdate);
     var xhr = new XMLHttpRequest();
     xhr.open("POST", "rec_update.php", true);
     xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
@@ -106,6 +107,7 @@ function formatDecimal(val, n) {
 }
 
 // in script segment below form
+
 var recnos = [];
 var cbt = 0;
 attachCheckboxHandlers();

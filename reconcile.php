@@ -9,7 +9,8 @@ require_once 'config.php';
 	} else {
 //Start Checking
 //Check reconcile for status 1 records for this group
-		$sql = "SELECT rec_id FROM reconciliation WHERE group_id = ? and rec_id = 1";
+
+		$sql = "SELECT rec_id FROM reconciliation WHERE group_id = ? and rec_status = 1";
 		$stmt = mysqli_stmt_init($link);
 		if($stmt = mysqli_prepare($link, $sql)){
             mysqli_stmt_bind_param($stmt, "i", $group);
@@ -19,12 +20,22 @@ require_once 'config.php';
                 $numrows = mysqli_stmt_num_rows($stmt);
                 if($numrows === 0){
                 	$recmessage = "No reconciliation in progress - creating a new reconciliation";
+                	$_SESSION['inprog'] = 0;
                 } else if($numrows !==1) {
-                	$recmessage = "An error has occured - contact support";
-                	exit;
+                	$recmessage = "An error has occured - contact support - Error Id = Reconcile_001";
+//                	echo $recmessage;
+//                	exit;
                 } else {
                 	mysqli_stmt_bind_result($stmt, $rec_id);
-                	$recmessage = "Statement ".$rec_id." is in progress for this group - you need to complete the reconciliation of this statement before starting a new one";
+                	while (mysqli_stmt_fetch($stmt)){
+            			$statement[] = ['Rec_Id' => $rec_id];
+            		 		foreach($statement as $post) {
+            		 			$recid = $post ['Rec_Id']; 
+                			}
+                	}
+                	$_SESSION['inprog'] = 1;
+                	$_SESSION['iprecid'] = $recid;
+                	$recmessage = "Statement ".$recid." is in progress for this group - you need to complete the reconciliation of this statement before starting a new one";
                 }
             }
         }
@@ -33,8 +44,39 @@ require_once 'config.php';
 //Check transaction for status 1 records for this group
 //also check that all status 1 records belong to only one statement
 
+		$sql = "SELECT rec_id FROM transaction WHERE group_id = ? and rec_status = 1 GROUP BY rec_id";
+		$stmt = mysqli_stmt_init($link);
+		if($stmt = mysqli_prepare($link, $sql)){
+            mysqli_stmt_bind_param($stmt, "i", $group);
+            $group = $_SESSION['Group_Id'];
+            if(mysqli_stmt_execute($stmt)){
+            	mysqli_stmt_store_result($stmt);
+                $numrows = mysqli_stmt_num_rows($stmt);
+                if($numrows === 0){
+                	$_SESSION['inprog'] = 0;
+                	$recmessage1 = "No reconciliation in progress - creating a new reconciliation";
+                } else if($numrows !==1) {
+                	$recmessage1 = "An error has occured - contact support - Error Id = Reconcile_002";
+//                	echo $recmessage;
+//                	exit;
+                } else {
+                	mysqli_stmt_bind_result($stmt, $rec_id);
+                	while (mysqli_stmt_fetch($stmt)){
+            			$statement[] = ['Rec_Id' => $rec_id];
+            		 		foreach($statement as $post) {
+            		 			$recid = $post ['Rec_Id']; 
+                			}
+                	}
+                	$_SESSION['inprog'] = 1;
+                	$recmessage1 = "Statement ".$recid." is in progress for this group - you need to complete the reconciliation of this statement before starting a new one";
+                }
+            }
+        }
+    mysqli_stmt_close($stmt);
 
- 		$sql = "SELECT rec_id, rec_status, group_id, end_balance, statement_date, rec_date, rec_note FROM reconciliation WHERE group_id = ? and rec_id = (select max(rec_id) from reconciliation where group_id = ?)";
+
+//get summary of last closed reconciliation of current in progress reconciliation
+ 		$sql = "SELECT rec_id, rec_status, group_id, end_balance, statement_date, rec_date, rec_note FROM reconciliation WHERE rec_status IN(0,1) and group_id = ? and rec_id = (select max(rec_id) from reconciliation where group_id = ?)";
 		$stmt = mysqli_stmt_init($link);
 
 		if($stmt = mysqli_prepare($link, $sql)){
@@ -67,11 +109,11 @@ require_once 'config.php';
 	}
 mysqli_stmt_close($stmt);
 
-
+//get records to display
 	if(!isset($_SESSION['groupname'])){
   		header("location: welcome.php");
 	} else {
- 		$sql = "SELECT trans_id, trans_date, income, expenditure, category, note, reverse_id FROM transaction WHERE group_id = ?";
+ 		$sql = "SELECT trans_id, trans_date, income, expenditure, category, note, rec_id FROM transaction WHERE group_id = ?";
  		$stmt = mysqli_stmt_init($link);
 				if($stmt = mysqli_prepare($link, $sql)){
             		mysqli_stmt_bind_param($stmt, "i", $group);
@@ -80,11 +122,11 @@ mysqli_stmt_close($stmt);
  //               			$result = mysqli_stmt_get_result($stmt);
 mysqli_stmt_store_result($stmt);
                 			$numrows = mysqli_stmt_num_rows($stmt);
-            mysqli_stmt_bind_result($stmt, $transid, $transdate, $income, $expenditure, $category, $note, $reverse);
+            mysqli_stmt_bind_result($stmt, $transid, $transdate, $income, $expenditure, $category, $note, $rec);
             $postings = [];
 
             	while (mysqli_stmt_fetch($stmt)){
-            		$postings[] = ['Trans_Id' => $transid, 'Trans_Date' => $transdate, 'Income' => $income, 'Expenditure' =>$expenditure, 'Category' =>$category, 'Note' => $note, 'Reverse' => $reverse]; 
+            		$postings[] = ['Trans_Id' => $transid, 'Trans_Date' => $transdate, 'Income' => $income, 'Expenditure' =>$expenditure, 'Category' =>$category, 'Note' => $note, 'Rec' => $rec]; 
                 }
 
                 } else {
@@ -111,23 +153,32 @@ mysqli_stmt_store_result($stmt);
 	<div class="container">
  
 			<div class="well well-sm col-sm-12">
-		<p>Last Reconciled Statement :<?php echo " ". $lastrec."  " ?>&nbspMessage : <?php echo " ". $recmessage."  " ?><br>Closing Balance :<?php echo "  ". $endbal."  " ?><br>
+		<p>Last Reconciled Statement :<?php echo " ". $lastrec."  " ?>&nbspMessage : <?php echo " ". $recmessage."  " ?><br>
+			&nbspMessage : <?php echo " ". $recmessage1."  " ?><br>
+			Closing Balance :<?php echo "  ". $endbal."  " ?><br>
 		Last Statement Date :<?php echo " ". $lastsdate."  " ?><br>Last Reconciliation Date :<?php echo "  ". $lastrdate."  " ?><br>
-		Last Reconciliation Note :<?php echo " ". $lastnote."  " ?></p>
-		<p>New Total</p><p id = "newtotal"></p>
+		Last Reconciliation Note :<?php echo " ". $lastnote."  " ?><br>
+		<form>
+		<label>Statement No. to reconcile</label><input type = "text" value ="<?php echo $recid ?>"/></p>
+		<label>Statement Date</label><input id="statdate" type = "date" /></p>
+		<input type="button" value="Save Reconciliation" onclick="saverec(1)"/>
+		<input type="button" value="Finalise Reconciliation" onclick="saverec(2)"/>
+	</form>
+		<p>Running Total</p><p id = "newtotal"></p>
 
 
 		
 
 				<div class="btn-group pull-right">
-					<p><a href="welcome.php" class="btn btn-danger">Back to main menu</a></p>
-					<p><a href="reverse.php" class="btn btn-danger">Reverse transaction</a></p>
+<!--					<p><a href="welcome.php" class="btn btn-danger">Back to main menu</a></p>-->
+					<button><a href="welcome.php">Back to main menu</a></button>
+<!--					<p><a href="reverse.php" class="btn btn-danger">Reverse transaction</a></p>
 					<button onclick="saverec(1)">Save Reconciliation</button>
-					<button onclick="saverec(2)">Finalise Reconciliation</button>
-					<form action="<?php echo $_SERVER["PHP_SELF"]; ?>" method="post">
-						<button type="submit" id="export_data" name='export_data' value="Export to excel" class="btn btn-info">Export to excel</button>
-
-					</form>
+					<button onclick="saverec(2)">Finalise Reconciliation</button>-->
+<!--					<form action="<?php echo $_SERVER["PHP_SELF"]; ?>" method="post">
+//						<button type="submit" id="export_data" name='export_data' value="Export to excel" class="btn btn-info">Export to excel</button>
+//
+//					</form>-->
 				</div>
 			</div>
 <form>
@@ -140,7 +191,8 @@ mysqli_stmt_store_result($stmt);
 				<th>Expenditure</th>
 				<th>Category</th>
 				<th>Note</th>
-				<th>Reverse Id</th>
+				<th>Reconciliation Id</th>
+				<th>Check</th>
 			</tr>
 			<tbody id="translist">
 				<?php 
@@ -148,11 +200,13 @@ mysqli_stmt_store_result($stmt);
 				foreach($postings as $post) {
 				$val = 0; 
 					$mycheck = "mycheck".$count;
-					if(!is_null($post['Reverse'])){
+
+						if($post['Rec'] !==0){
 						echo "<tr class='danger'>";
 					} else {
 						echo "<tr>";
 					}
+					
 					if($post ['Income'] > 0){
 						$val = $post ['Trans_Id'].'|#|'.$post ['Income'];
 					} else {
@@ -166,10 +220,8 @@ mysqli_stmt_store_result($stmt);
 					<td><?php echo $post ['Expenditure']; ?></td>
 					<td><?php echo $post ['Category']; ?></td>
 					<td><?php echo $post ['Note']; ?></td>
-					<td><?php echo $post ['Reverse']; ?></td>
-					<td><label class="checkbox-inline" >
-						<input type= "checkbox" value="<?php echo $val; ?>">Reconcile
-						</label>
+					<td><?php echo $post ['Rec']; ?></td>
+					<td><label class="checkbox-inline" ><input type= "checkbox" value="<?php echo $val; ?>"  Reconcile ></label>
 					</td>
 				</tr>
 				<?php ++$count; } ?>
