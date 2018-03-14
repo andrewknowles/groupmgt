@@ -1,26 +1,28 @@
 // call onload or in script segment below form
 function attachCheckboxHandlers() {
     // get reference to element containing toppings checkboxes
-    var el = document.getElementById('translist');
+    var table = document.getElementById('translist');
 //    var tab = document.getElementById('rectable');
 
     // get reference to input elements in toppings container element
-    var tops = el.getElementsByTagName('input');
+    var rows = table.getElementsByTagName('tr');
+    var sel = rows.getElementById('select');
     
     // assign updateTotal function to onclick property of each checkbox
-    for (var i=0, len=tops.length; i<len; i++) {
-        if ( tops[i].type === 'checkbox' ) {
-            tops[i].onclick = updateTotal;
-//            tops[i}.onclick = getLine;
-        }
+    for (var i=0, len=rows.length; i<len; i++) {
+        var ak = table.rows[i].cells[0].innerHTML;
+        var cell = table.rows[i].cells[7];
 
+
+//        if (table.rows[i].cells[7].innerHTML.type === 'checkbox') {
+//            rows[i].onclick = updateTotal;
+//        }
     }
 }
 
     
 // called onclick of toppings checkboxes
 function updateTotal(e) {
-    
     // 'this' is reference to checkbox clicked on
     var form = this.form;
 
@@ -29,42 +31,17 @@ function updateTotal(e) {
     var val = parseFloat( form.elements['total'].value );
     var val1 = parseFloat( form.elements['total1'].value );
     // if check box is checked, add its value to val, otherwise subtract it
-     var ak = this.value;
-        var ak11 = ak.split("|#|");
-        var recno = Number(ak11[0]);
-        var value = Number(ak11[1],2);
     if ( this.checked ) {
-       
-        recnos.push(recno);
-//    	if (this.value > 0){
-//            val += parseFloat(this.value);
-//        } else {
-//    	   val1 += Math.abs(parseFloat(this.value));
-//        }
-//    } else {
-//    	if (this.value > 0){
-//            val -= parseFloat(this.value);
-//        } else {
-//    	   val1 -= Math.abs(parseFloat(this.value));
-//        }
-
-if (value > 0){
-            val += value;
+    	if (this.value > 0){
+            val += parseFloat(this.value);
         } else {
-
-         val1 += Math.abs(value);
+    	   val1 += Math.abs(parseFloat(this.value));
         }
     } else {
-        for(var ii in recnos){
-            if(recnos[ii] === recno){
-                recnos.splice(ii,1);
-//                break;
-            }
-        }
-      if (value > 0){
-            val -= value;
+    	if (this.value > 0){
+            val -= parseFloat(this.value);
         } else {
-         val1 -= Math.abs(value);
+    	   val1 -= Math.abs(parseFloat(this.value));
         }
     }
     
@@ -78,19 +55,6 @@ if (value > 0){
     var cb = ob + xinc - xexp;
     form.elements['cbal'].value = formatDecimal(cb);
     document.getElementById('newtotal').innerHTML = cb;
-    cbt = cb;
-}
-
-function saverec(e) {
-var params = ''+ 'ttype=' + window.encodeURIComponent(e) + '&transid=' + window.encodeURIComponent(recnos) + '&bal=' + window.encodeURIComponent(cbt);
-    var xhr = new XMLHttpRequest();
-    xhr.open("POST", "rec_update.php", true);
-    xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
-    xhr.onload = function()
-    {
-      alert(this.responseText);
-    }
-    xhr.send(params);
 }
     
 // format val to n number of decimal places
@@ -106,6 +70,4 @@ function formatDecimal(val, n) {
 }
 
 // in script segment below form
-var recnos = [];
-var cbt = 0;
 attachCheckboxHandlers();

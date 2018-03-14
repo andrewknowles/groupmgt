@@ -6,11 +6,11 @@ function rec(e){
 //var andrew = 1;
 alert('ok');
 	
-
+var table = document.getElementById('rectable');
 	for(var i=1; i<table.rows.length; i++)
 		{
 var name = "mycheck"+i;
-				var table = document.getElementById('rectable');				
+								
 //				var trans = Number(table.cells[0].innerHTML);
 				var inc = Number(this.cells[2].innerHTML);
 				var exp = Number(this.cells[3].innerHTML);
