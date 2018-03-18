@@ -7,8 +7,36 @@ require_once 'config.php';
 	if(!isset($_SESSION['Group_Id'])){
   		header("location: welcome.php");
 	} else {
+	$_SESSION['iprecid'] = NULL;
 //Start Checking
-//Check reconcile for status 1 records for this group
+//Check that there is atleast 1 reconciliation record for this group - if not(group has never used reconciliation) create a default record
+		$sql = "SELECT rec_id FROM reconciliation WHERE group_id = ?";
+		$stmt = mysqli_stmt_init($link);
+		if($stmt = mysqli_prepare($link, $sql)){
+            mysqli_stmt_bind_param($stmt, "i", $group);
+            $group = $_SESSION['Group_Id'];
+            if(mysqli_stmt_execute($stmt)){
+            	mysqli_stmt_store_result($stmt);
+                $numrows = mysqli_stmt_num_rows($stmt);
+                mysqli_stmt_close($stmt);
+//if $numrows = 0 there are no reconciliation records for this group so create one
+                if($numrows === 0){
+                	$sql = "INSERT INTO reconciliation SET rec_id = 0, rec_status = 2, group_id = ?, end_balance = 0.00";
+					$stmt = mysqli_stmt_init($link);
+					if($stmt = mysqli_prepare($link, $sql)){
+            			mysqli_stmt_bind_param($stmt, "i", $group);
+            			$group = $_SESSION['Group_Id'];
+            			if(mysqli_stmt_execute($stmt)){
+            				mysqli_stmt_store_result($stmt);
+                			$numrows = mysqli_stmt_num_rows($stmt);
+                		}
+                	}
+                mysqli_stmt_close($stmt);
+                }
+            }
+        }
+        
+//Check reconciliation table for status 1 records for this group
 
 		$sql = "SELECT rec_id FROM reconciliation WHERE group_id = ? and rec_status = 1";
 		$stmt = mysqli_stmt_init($link);
@@ -29,13 +57,13 @@ require_once 'config.php';
                 	mysqli_stmt_bind_result($stmt, $rec_id);
                 	while (mysqli_stmt_fetch($stmt)){
             			$statement[] = ['Rec_Id' => $rec_id];
-            		 		foreach($statement as $post) {
-            		 			$recid = $post ['Rec_Id']; 
-                			}
+            		 	foreach($statement as $post) {
+            		 			$lastrec = $post ['Rec_Id']; 
+                		}
                 	}
                 	$_SESSION['inprog'] = 1;
-                	$_SESSION['iprecid'] = $recid;
-                	$recmessage = "Statement ".$recid." is in progress for this group - you need to complete the reconciliation of this statement before starting a new one";
+                	$_SESSION['iprecid'] = $lastrec;
+                	$recmessage = "Statement ".$lastrec." is in progress for this group - you need to complete the reconciliation of this statement before starting a new one";
                 }
             }
         }
@@ -53,7 +81,7 @@ require_once 'config.php';
             	mysqli_stmt_store_result($stmt);
                 $numrows = mysqli_stmt_num_rows($stmt);
                 if($numrows === 0){
-                	$_SESSION['inprog'] = 0;
+//                	$_SESSION['inprog'] = 0;
                 	$recmessage1 = "No reconciliation in progress - creating a new reconciliation";
                 } else if($numrows !==1) {
                 	$recmessage1 = "An error has occured - contact support - Error Id = Reconcile_002";
@@ -64,7 +92,7 @@ require_once 'config.php';
                 	while (mysqli_stmt_fetch($stmt)){
             			$statement[] = ['Rec_Id' => $rec_id];
             		 		foreach($statement as $post) {
-            		 			$recid = $post ['Rec_Id']; 
+            		 			$lastrec = $post ['Rec_Id']; 
                 			}
                 	}
                 	$_SESSION['inprog'] = 1;
@@ -75,8 +103,8 @@ require_once 'config.php';
     mysqli_stmt_close($stmt);
 
 
-//get summary of last closed reconciliation of current in progress reconciliation
- 		$sql = "SELECT rec_id, rec_status, group_id, end_balance, statement_date, rec_date, rec_note FROM reconciliation WHERE rec_status IN(0,1) and group_id = ? and rec_id = (select max(rec_id) from reconciliation where group_id = ?)";
+//get summary of last closed reconciliation or current in progress reconciliation
+ 		$sql = "SELECT rec_id, rec_status, group_id, end_balance, statement_date, rec_date, rec_note FROM reconciliation WHERE rec_status IN(1,2) and group_id = ? and rec_id = (select max(rec_id) from reconciliation where group_id = ?)";
 		$stmt = mysqli_stmt_init($link);
 
 		if($stmt = mysqli_prepare($link, $sql)){
@@ -89,18 +117,31 @@ require_once 'config.php';
 				mysqli_stmt_bind_result($stmt, $rec_id, $rec_status, $group_id, $end_balance, $statement_date, $rec_date, $rec_note);
             	$statement = [];
 
-            	if($numrows === 1){            	
+            	if($numrows == 1){            	
             		while (mysqli_stmt_fetch($stmt)){
             			$statement[] = ['Rec_Id' => $rec_id, 'Rec_Status' => $rec_status, 'Group_Id' => $group_id, 'End_Balance' => $end_balance, 'Statement_Date' =>$statement_date, 'Rec_Date' =>$rec_date, 'Rec_Note' => $rec_note];
-            		 		foreach($statement as $post) { 
-            					$lastrec = $post ['Rec_Id'];
+            		 		foreach($statement as $post) {
+            		 			$lastrec = $post['Rec_Id'] ;
             					$recstatus = $post['Rec_Status'];
+            					if($recstatus == 2){
+            						$nextrec = "Enter Statement No";
+            					} else {
+            						$nextrec = $post['Rec_Id'] ;
+            					}
 								$endbal = $post ['End_Balance'];
 								$lastsdate = $post ['Statement_Date'];
 								$lastrdate = $post ['Rec_Date'];
 								$lastnote = $post ['Rec_Note'];
                 			}
                 	} 
+            	} else if($numrows == 0) {
+            		$recid = 0;
+            		$lastrec = 0;
+            		$recstatus = 2;
+					$endbal = 0;
+					$lastsdate = '2000-01-01';
+					$lastrdate = '2000-01-01';
+					$lastnote = '';
             	} else {
             		echo "Numrows <> 1";
             	}
@@ -110,7 +151,7 @@ require_once 'config.php';
 mysqli_stmt_close($stmt);
 
 //get records to display
-	if(!isset($_SESSION['groupname'])){
+	if(!isset($_SESSION['Group_Id'])){
   		header("location: welcome.php");
 	} else {
  		$sql = "SELECT trans_id, trans_date, income, expenditure, category, note, rec_id FROM transaction WHERE group_id = ?";
@@ -159,7 +200,7 @@ mysqli_stmt_store_result($stmt);
 		Last Statement Date :<?php echo " ". $lastsdate."  " ?><br>Last Reconciliation Date :<?php echo "  ". $lastrdate."  " ?><br>
 		Last Reconciliation Note :<?php echo " ". $lastnote."  " ?><br>
 		<form>
-		<label>Statement No. to reconcile</label><input type = "text" value ="<?php echo $recid ?>"/></p>
+		<label>Statement No. to reconcile</label><input id="statno" type = "text" value ="<?php echo $nextrec ?>"/></p>
 		<label>Statement Date</label><input id="statdate" type = "date" /></p>
 		<input type="button" value="Save Reconciliation" onclick="saverec(1)"/>
 		<input type="button" value="Finalise Reconciliation" onclick="saverec(2)"/>

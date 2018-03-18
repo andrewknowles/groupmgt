@@ -77,21 +77,27 @@ if (value > 0){
     var xexp =  val1;
     var cb = ob + xinc - xexp;
     form.elements['cbal'].value = formatDecimal(cb);
-    document.getElementById('newtotal').innerHTML = cb;
+    document.getElementById('newtotal').innerHTML = formatDecimal(cb);
     cbt = cb;
 }
 
 function saverec(e) {
     var stdate = document.getElementById("statdate").value;
-var params = ''+ 'ttype=' + window.encodeURIComponent(e) + '&transid=' + window.encodeURIComponent(recnos) + '&bal=' + window.encodeURIComponent(cbt) + '&dstat=' + window.encodeURIComponent(stdate);
+    var statid = document.getElementById("statno").value;
+    if(statid == 'Enter Statement No'){
+        alert("Enter statement number");
+        return false;
+    }
+var params = ''+ 'ttype=' + window.encodeURIComponent(e) + '&transid=' + window.encodeURIComponent(recnos) + '&bal=' + window.encodeURIComponent(cbt) + '&dstat=' + window.encodeURIComponent(stdate) + '&statno=' + window.encodeURIComponent(statid);
     var xhr = new XMLHttpRequest();
-    xhr.open("POST", "rec_update.php", true);
+    xhr.open("POST", "rec_update1.php", true);
     xhr.setRequestHeader('Content-type', 'application/x-www-form-urlencoded');
     xhr.onload = function()
     {
       alert(this.responseText);
     }
     xhr.send(params);
+    window.location.reload();
 }
     
 // format val to n number of decimal places
